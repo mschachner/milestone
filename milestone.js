@@ -202,10 +202,10 @@ function init() {
 }
 
 function loadImages() {
-    black.src = "assets/images/milestone/B.png";
-    white.src = "assets/images/milestone/W.png";
-    gui.src   = "assets/images/milestone/gui.png";
-    check.src = "assets/images/milestone/check.png";
+    black.src = "images/B.png";
+    white.src = "images/W.png";
+    gui.src   = "images/gui.png";
+    check.src = "images/check.png";
 }
 
 function loadSpaces() {
