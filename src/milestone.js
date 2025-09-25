@@ -1,168 +1,5 @@
-// To begin with, some classes to contain the basic objects, moves and states.
-
-class Move {
-    sourcex;
-    sourcey;
-    targetx;
-    targety;
-    pieceMoved;
-    pieceCaptured;
-    moveID;
-
-    constructor(i,j,k,l) {
-        this.sourcex = i;
-        this.sourcey = j;
-        this.targetx = k;
-        this.targety = l;
-        this.pieceMoved    = state.board[i][j];
-        this.pieceCaptured = state.board[k][l];
-        this.moveID = '' + i + j + k + l;
-    }
-
-    wins() {
-        return (   (this.targetx == 0 && this.targety == 0)
-                || (this.targetx == 6 && this.targety == 6));
-    }
-}
-
-class GameState {
-    board;
-    turn;
-    bHuman;
-    wHuman;
-    difficulty;
-    isMenu;
-    moveList = [];
-
-    constructor(board, bHuman, wHuman,difficulty,menu) {
-        this.board = board;
-        this.turn = 1; // 0 for black, 1 for white  
-        this.bHuman = bHuman;
-        this.wHuman = wHuman;
-        this.difficulty = difficulty;
-        this.isMenu = menu;
-    }
-
-    blackPieces() {
-        let arr = [];
-        for (let i=0;i<7;i++) {
-            for (let j=0;j<7;j++) {
-                if (this.board[i][j] == 'B') {
-                    arr.push([i,j]);
-                }
-            }
-        }
-        return arr;
-    }
-
-    whitePieces() {
-        let arr = [];
-        for (let i=0;i<7;i++) {
-            for (let j=0;j<7;j++) {
-                if (this.board[i][j] == 'W') {
-                    arr.push([i,j]);
-                }
-            }
-        }
-        return arr;
-    }
-
-    winner() {
-        // -1 for black, 1 for white, 0 for neither
-
-        if (this.board[0][0] == 'W') {
-            return 1;
-        }
-        else if (this.board[6][6] == 'B') {
-            return -1;
-        }
-        else if (this.legalMoves().length == 0) {
-            return (1-this.turn);
-        }
-        else {
-            return 0;
-        }
-    }
-
-    gameOver() {
-        return !(this.winner() == 0);
-    }
-
-    legalMoves() {
-        let moves = [];
-        if (this.board[0][0] == 'W' || this.board[6][6] == 'B') {
-            return moves;
-        }
-        if (this.turn == 0) {
-            for (var [x,y] of this.blackPieces()) {
-                if (x != 6 && this.board[x+1][y] == 'O') {
-                    moves.push(new Move(x,y,x+1,y));
-                }
-                if (y != 6 && this.board[x][y+1] == 'O') {
-                    moves.push(new Move(x,y,x,y+1));
-                }
-                if (x != 6 && y != 6 && this.board[x+1][y+1] != 'B') {
-                    moves.push(new Move(x,y,x+1,y+1));
-                }
-            }
-        }
-        else {
-            for (var [x,y] of this.whitePieces()) {
-                if (x != 0 && this.board[x-1][y] == 'O') {
-                    moves.push(new Move(x,y,x-1,y));
-                }
-                if (y != 0 && this.board[x][y-1] == 'O') {
-                    moves.push(new Move(x,y,x,y-1));
-                }
-                if (x != 0 && y != 0 && this.board[x-1][y-1] != 'W') {
-                    moves.push(new Move(x,y,x-1,y-1));
-                }
-            }
-        }
-        return moves;
-    }
-
-    legalTargets([i,j]) {
-        return this.legalMoves().filter(move => move.sourcex == i && move.sourcey == j)
-                   .map(move=>[move.targetx,move.targety]);
-    }
-
-    enact(move) {
-        this.board[move.targetx][move.targety] = this.board[move.sourcex][move.sourcey];
-        this.board[move.sourcex][move.sourcey] = 'O';
-        this.turn = 1-this.turn;
-        highlight = false;
-        this.moveList.push(move);
-    }
-
-    undo() {
-        if (this.moveList.length != 0) {
-            let move = this.moveList.pop();
-            this.board[move.sourcex][move.sourcey] = move.pieceMoved;
-            this.board[move.targetx][move.targety] = move.pieceCaptured;
-            this.turn = 1 - this.turn;
-        }
-    }
-}
-
-// The initial board.
-
-const initialBoard =[['B','B','B','B','X','X','X'],
-                    ['B','B','B','O','O','X','X'],
-                    ['B','B','O','O','O','O','X'],
-                    ['B','O','O','O','O','O','W'],
-                    ['X','O','O','O','O','W','W'],
-                    ['X','X','O','O','W','W','W'],
-                    ['X','X','X','W','W','W','W'],
-                    ];
-
-
-function initialState(bH,wH,diff) {
-    var arr = initialBoard.map(function(a) {
-        return a.slice();
-    })
-    return new GameState(arr,bH,wH,diff,true);
-}
+import {initialState, Move} from './milestone_logic.js';
+import {engine_smart} from './milestone_ai.js';
 
 const board   = new Path2D();
 const spaces  = new Array(7);
@@ -183,7 +20,7 @@ let hx = 0, hy = 0;
 let quat = false;
 
 
-function init() {
+export function init() {
     canvas = document.getElementById("milestone");
     ctx = canvas.getContext("2d");
 
@@ -250,8 +87,8 @@ function loadSpaces() {
             for (let i = 0; i < 7; i++) {
                 for (let j = 0; j < 7; j++) {
                     if (ctx.isPointInPath(spaces[i][j].hex,event.offsetX,event.offsetY)
-                        && (   (state.turn == 0 && state.board[i][j] == 'B')
-                            || (state.turn == 1 && state.board[i][j] == 'W'))) {
+                        && (   (state.turn == -1 && state.board[i][j] == -1)
+                            || (state.turn == 1 && state.board[i][j] == 1))) {
                         highlight = true;
                         hx = i, hy = j;
                     }
@@ -390,7 +227,7 @@ function drawGame() {
     if (highlight) {
         spaces[hx][hy].color = "yellow";
         for ([i,j] of state.legalTargets([hx,hy])) {
-            spaces[i][j].color = state.board[i][j] == 'O'
+            spaces[i][j].color = state.board[i][j] == 0
                             ? "lightblue"
                             : "pink";
         }
@@ -405,7 +242,7 @@ function drawGame() {
     
     // draw pieces
 
-    for (var [x,y] of state.blackPieces()) {
+    for (var [x,y] of state.pieceArrays()[0]) {
         let [spaceX,spaceY] = coordToScreen(x,y);
     
         ctx.drawImage(black,spaceX+X*(1/2 - 5/(96*Math.sqrt(3))),
@@ -414,7 +251,7 @@ function drawGame() {
         
     }
 
-    for (var [x,y] of state.whitePieces()) {
+    for (var [x,y] of state.pieceArrays()[1]) {
         let [spaceX,spaceY] = coordToScreen(x,y);
     
         ctx.drawImage(white,spaceX+X*(1/2 - 5/(96*Math.sqrt(3))),
@@ -493,129 +330,11 @@ function draw() {
     else {
         drawGame();
 
-        if (!state.gameOver() && (   (state.turn == 0 && !state.bHuman) 
-                                  || (state.turn == 1 && !state.wHuman))) {
+        if (!state.gameOver() && (   (state.turn == -1 && !state.bHuman) 
+                                  || (state.turn ==  1 && !state.wHuman))) {
             state.enact(engine_smart());
         }
     }
     window.requestAnimationFrame(draw);
 }
-
-// ----------------------------------------------------------------------------
-//
-// The engine section
-//
-// -----------------------------------------------------------------------------
-
-let nextMove;
-
-var scores = [[1000, 20, 10,  5,   0,   0,    0],
-             [ 20,  25, 15, 15,  10,   0,    0],
-             [ 10,  15, 45, 30,  20,  15,    0],
-             [  5,  15, 30, 50,  20,  30,   30],
-             [  0,  10, 20, 20,  100,  40,   40],
-             [  0,   0, 15, 30,  40, 1000,   50],
-             [  0,   0,  0, 30,  40,  50, 100000]]
-
-
-function evaluation() {
-    switch (state.winner()) {
-        case -1: // black has won
-            return 100000;
-        case 1: // white has won
-            return -100000;
-        case 0:
-            let blackScore = 0, whiteScore = 0;
-            for (var [i,j] of state.blackPieces()) {
-                blackScore += scores[i][j];
-            }
-            for (var [i,j] of state.whitePieces()) {
-                whiteScore += scores[6-i][6-j];
-            }
-            return blackScore - whiteScore; // positive for black, negative for white
-    }
-}
-
-
-function engine_dumb() {
-    let moves = state.legalMoves();
-    return moves[Math.floor(Math.random() * moves.length)];
-}
-
-function engine_negamax() {
-    nextMove = null;
-    let mvs = state.legalMoves();
-    shuffle(mvs);
-    negamax(mvs,state.difficulty,state.difficulty,((state.turn == 0) ? 1 : -1));
-    return nextMove;
-}
-
-
-function engine_smart() {
-    nextMove = null;
-    let mvs = state.legalMoves();
-    for (var mv of mvs) {
-        if (mv.wins()) {
-            nextMove =  mv;
-            return nextMove;
-        }
-    }
-    shuffle(mvs);
-    alpha_beta(mvs,state.difficulty,state.difficulty,-1000000,1000000, (state.turn == 0) ? 1 : -1);
-    return nextMove;
-}
-
-
-function negamax(mvs,depth,max_depth,turnMultiplier) {
-    if (depth == 0) {
-        return turnMultiplier*evaluation();
-    }
-    let maxScore = -1000000;
-    for (var move of mvs) {
-        state.enact(move);
-        let nextMvs = state.legalMoves();
-        let score = -1 * negamax(nextMvs,depth-1,max_depth,-1*turnMultiplier);
-        if (score > maxScore) {
-            maxScore = score;
-            if (depth == max_depth) {
-                nextMove = move;
-            }
-        }
-        state.undo();
-    }
-    return maxScore;
-}
-
-function alpha_beta(mvs,depth,max_depth,alpha,beta,turnMultiplier) {
-    if (depth == 0) {
-        return turnMultiplier * evaluation();
-    }
-    let maxScore = -1000000;
-    for (var move of mvs) {
-        state.enact(move);
-        let nextMvs = state.legalMoves();
-        let score;
-        if (nextMvs.length == 0) {
-            score = turnMultiplier * 100000;
-        }
-        else {
-            score = -1 * alpha_beta(nextMvs,depth-1,max_depth,-1*beta,-1*alpha,-1*turnMultiplier);
-        }
-        if (score > maxScore) {
-            maxScore = score;
-            if (depth == max_depth) {
-                nextMove = move;
-            }
-        }
-        state.undo();
-        if (maxScore > alpha) {
-            alpha = maxScore;
-        }
-        if (alpha >= beta) {
-            break;
-        }
-    }
-    return maxScore;
-}
-
 
