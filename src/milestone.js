@@ -1,5 +1,5 @@
 import {initialState, Move} from './milestone_logic.js';
-import {engine_smart, scores} from './milestone_ai.js';
+import {engine, scores} from './milestone_ai.js';
 
 const board   = new Path2D();
 const spaces  = new Array(7);
@@ -300,7 +300,7 @@ function draw() {
 
         if (!state.gameOver() && (   (state.turn == -1 && !state.bHuman) 
                                   || (state.turn ==  1 && !state.wHuman))) {
-            state.enact(engine_smart(state,scores));
+            state.enact(engine(state,scores));
         }
     }
     window.requestAnimationFrame(draw);

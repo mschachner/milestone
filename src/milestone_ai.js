@@ -1,27 +1,19 @@
-import { GameState, initialBoard } from './milestone_logic.js';
-let nextMove;
+import { initialBoard } from './milestone_logic.js';
 
 // A shuffle function.
-function shuffle(array) {
+export function shuffle(array) {
     let currentIndex = array.length,  randomIndex;
-  
-    // While there remain elements to shuffle.
     while (currentIndex != 0) {
-  
-      // Pick a remaining element.
       randomIndex = Math.floor(Math.random() * currentIndex);
       currentIndex--;
-  
-      // And swap it with the current element.
       [array[currentIndex], array[randomIndex]] = [
         array[randomIndex], array[currentIndex]];
-    }
-  
+    }  
     return array;
 }
 
 
-function evaluation(state,scoreMatrix) {
+function evaluation(state, matrix) {
     switch (state.winner()) {
         case -1: // black has won
             return 100000;
@@ -30,35 +22,35 @@ function evaluation(state,scoreMatrix) {
         case 0:
             let blackScore = 0, whiteScore = 0;
             for (var [i,j] of state.pieceArrays()[0]) {
-                blackScore += scoreMatrix[i][j];
+                blackScore += matrix[i][j];
             }
             for (var [i,j] of state.pieceArrays()[1]) {
-                whiteScore += scoreMatrix[6-i][6-j];
+                whiteScore += matrix[6-i][6-j];
             }
             return blackScore - whiteScore; // positive for black, negative for white
     }
 }
 
 
-export function engine_smart(state,scoreMatrix) {
-    nextMove = null;
+export function engine(state,critter) {
     let mvs = state.legalMoves();
     for (var mv of mvs) {
         if (mv.wins()) {
-            nextMove =  mv;
-            return nextMove;
+            return mv;
         }
     }
     shuffle(mvs);
-    alpha_beta(state,mvs,state.difficulty,state.difficulty,-1000000,1000000, -state.turn,scoreMatrix);
-    return nextMove;
+    const matrix = (critter && critter.evalMatrix) ? critter.evalMatrix : critter;
+    const result = alpha_beta(state, mvs, state.difficulty, state.difficulty, -1000000, 1000000, -state.turn, matrix);
+    return result.move ?? mvs[0];
 }
 
-function alpha_beta(state,mvs,depth,max_depth,alpha,beta,turnMultiplier,scoreMatrix) {
+function alpha_beta(state,mvs,depth,max_depth,alpha,beta,turnMultiplier,matrix) {
     if (depth == 0) {
-        return turnMultiplier * evaluation(state,scoreMatrix);
+        return { score: turnMultiplier * evaluation(state,matrix), move: null };
     }
     let maxScore = -1000000;
+    let bestMove = null;
     for (var move of mvs) {
         state.enact(move);
         let nextMvs = state.legalMoves();
@@ -67,12 +59,12 @@ function alpha_beta(state,mvs,depth,max_depth,alpha,beta,turnMultiplier,scoreMat
             score = turnMultiplier * 100000;
         }
         else {
-            score = -1 * alpha_beta(state,nextMvs,depth-1,max_depth,-1*beta,-1*alpha,-1*turnMultiplier,scoreMatrix);
+            score = -1 * alpha_beta(state,nextMvs,depth-1,max_depth,-1*beta,-1*alpha,-1*turnMultiplier,matrix).score;
         }
         if (score > maxScore) {
             maxScore = score;
             if (depth == max_depth) {
-                nextMove = move;
+                bestMove = move;
             }
         }
         state.undo();
@@ -83,7 +75,7 @@ function alpha_beta(state,mvs,depth,max_depth,alpha,beta,turnMultiplier,scoreMat
             break;
         }
     }
-    return maxScore;
+    return { score: maxScore, move: bestMove };
 }
 
 //------------------------------
@@ -104,20 +96,12 @@ export var scores_allZero = [[0, 0, 0, 0, 0, 0, 0],
                              [0, 0, 0, 0, 0, 0, 0],
                              [0, 0, 0, 0, 0, 0, 0],
                              [0, 0, 0, 0, 0, 0, 0]]
-
-// Face off two AIs with two different score matrices.
-
-export function faceOff(scoreMatrix1, scoreMatrix2, difficulty) {
-    let state = new GameState(initialBoard, true, true, difficulty, false);
-    while (!state.gameOver()) {
-        if (state.turn == 1) {
-            engine_smart(state,scoreMatrix1);
-        }
-        else {
-            engine_smart(state,scoreMatrix2);
-        }
-        state.enact(nextMove);
-    }
-    state.winner() == -1 ? console.log("Black wins") : console.log("White wins");
-}
+                             
+export var scores_allOne = [[1, 1, 1, 1, 1, 1, 1],
+                             [1, 1, 1, 1, 1, 1, 1],
+                             [1, 1, 1, 1, 1, 1, 1], 
+                             [1, 1, 1, 1, 1, 1, 1],
+                             [1, 1, 1, 1, 1, 1, 1],
+                             [1, 1, 1, 1, 1, 1, 1],
+                             [1, 1, 1, 1, 1, 1, 1]]
 
