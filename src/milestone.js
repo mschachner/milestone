@@ -1,5 +1,5 @@
 import {initialState, Move} from './milestone_logic.js';
-import {engine_smart} from './milestone_ai.js';
+import {engine_smart, scores} from './milestone_ai.js';
 
 const board   = new Path2D();
 const spaces  = new Array(7);
@@ -12,12 +12,6 @@ const white   = new Image();
 
 let canvas,ctx, X, Y;
 let state = initialState(false,true,3);
-
-
-let highlight = false;
-let hx = 0, hy = 0; 
-
-let quat = false;
 
 
 export function init() {
@@ -74,12 +68,12 @@ function loadSpaces() {
 
             // If a hex is highlighted and you click a legal target, enact move.
 
-            for (var [i,j] of state.legalTargets([hx,hy])) {
-                if (highlight && ctx.isPointInPath(spaces[i][j].hex,event.offsetX,event.offsetY)) {
-                    state.enact(new Move(hx,hy,i,j));    
+            for (let [i,j] of state.legalTargets(state.hhex)) {
+                if (state.isHighlight && ctx.isPointInPath(spaces[i][j].hex,event.offsetX,event.offsetY)) {
+                    state.enact(new Move(state.hhex[0],state.hhex[1],i,j,state.board));    
                 }
             }
-            highlight = false;
+            state.isHighlight = false;
 
             // otherwise, if a hex is clicked, mark it to be highlighted.
             // then recolor.
@@ -89,8 +83,8 @@ function loadSpaces() {
                     if (ctx.isPointInPath(spaces[i][j].hex,event.offsetX,event.offsetY)
                         && (   (state.turn == -1 && state.board[i][j] == -1)
                             || (state.turn == 1 && state.board[i][j] == 1))) {
-                        highlight = true;
-                        hx = i, hy = j;
+                        state.isHighlight = true;
+                        state.hhex = [i,j];
                     }
                 }
             }
@@ -121,8 +115,8 @@ function loadMenu() {
     buttons[12].closePath();
 
     canvas.addEventListener('click', function(event) {
-        if (quat) {
-            quat = false;
+        if (state.quat) {
+            state.quat = false;
             state = initialState(state.bHuman,state.wHuman,state.difficulty);
             
         }
@@ -159,10 +153,6 @@ function loadMenu() {
     });
 }
 
-function updateMenu() {
-    
-}
-
 function loadBoard() {
     board.moveTo(X/2,X/12);
     board.lineTo(X*(1/2+5*Math.sqrt(3)/24),X*7/24);
@@ -173,29 +163,8 @@ function loadBoard() {
     board.closePath();
 }
 
-// helpers. Shuffle stolen from
-//  https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
-
 function coordToScreen(i,j) {
     return [(j-i) * 5*X/(32*Math.sqrt(3)),(i+j) * 5*X/96]
-}
-
-function shuffle(array) {
-    let currentIndex = array.length,  randomIndex;
-  
-    // While there remain elements to shuffle.
-    while (currentIndex != 0) {
-  
-      // Pick a remaining element.
-      randomIndex = Math.floor(Math.random() * currentIndex);
-      currentIndex--;
-  
-      // And swap it with the current element.
-      [array[currentIndex], array[randomIndex]] = [
-        array[randomIndex], array[currentIndex]];
-    }
-  
-    return array;
 }
 
 function drawGame() {
@@ -224,9 +193,9 @@ function drawGame() {
                 spaces[i][j].color = ["#f7cd88","#d6a585","#f5be9a"][(i+j) % 3];
         }
     }
-    if (highlight) {
-        spaces[hx][hy].color = "yellow";
-        for ([i,j] of state.legalTargets([hx,hy])) {
+    if (state.isHighlight) {
+        spaces[state.hhex[0]][state.hhex[1]].color = "yellow";
+        for (let [i,j] of state.legalTargets(state.hhex)) {
             spaces[i][j].color = state.board[i][j] == 0
                             ? "lightblue"
                             : "pink";
@@ -242,7 +211,7 @@ function drawGame() {
     
     // draw pieces
 
-    for (var [x,y] of state.pieceArrays()[0]) {
+    for (let [x,y] of state.pieceArrays()[0]) {
         let [spaceX,spaceY] = coordToScreen(x,y);
     
         ctx.drawImage(black,spaceX+X*(1/2 - 5/(96*Math.sqrt(3))),
@@ -251,7 +220,7 @@ function drawGame() {
         
     }
 
-    for (var [x,y] of state.pieceArrays()[1]) {
+    for (let [x,y] of state.pieceArrays()[1]) {
         let [spaceX,spaceY] = coordToScreen(x,y);
     
         ctx.drawImage(white,spaceX+X*(1/2 - 5/(96*Math.sqrt(3))),
@@ -271,8 +240,7 @@ function drawGame() {
         else {
             ctx.fillText("White has won! Click anywhere to return.",X*0.07,X*1.01);
         }
-        quat = true;
-
+        state.quat = true;
     }
 
     // draw rules dialog
@@ -332,7 +300,7 @@ function draw() {
 
         if (!state.gameOver() && (   (state.turn == -1 && !state.bHuman) 
                                   || (state.turn ==  1 && !state.wHuman))) {
-            state.enact(engine_smart());
+            state.enact(engine_smart(state,scores));
         }
     }
     window.requestAnimationFrame(draw);

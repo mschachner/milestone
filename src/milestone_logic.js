@@ -1,38 +1,39 @@
 // To begin with, some classes to contain the basic objects, moves and states.
+import { engine_smart, scores } from './milestone_ai.js';
 
-class Move {
-    sourcex;
-    sourcey;
-    targetx;
-    targety;
+
+export class Move {
+    source;
+    target;
     pieceMoved;
     pieceCaptured;
     moveID;
 
     constructor(i,j,k,l,board) {
-        this.sourcex = i;
-        this.sourcey = j;
-        this.targetx = k;
-        this.targety = l;
+        this.source = [i,j];
+        this.target = [k,l];
         this.pieceMoved = board[i][j];
         this.pieceCaptured = board[k][l];
         this.moveID = '' + i + j + k + l;
     }
 
     wins() {
-        return (   (this.targetx == 0 && this.targety == 0)
-                || (this.targetx == 6 && this.targety == 6));
+        return (   (this.target[0] == 0 && this.target[1] == 0)
+                || (this.target[0] == 6 && this.target[1] == 6));
     }
 
 }
 
-class GameState {
+export class GameState {
     board;
     turn;
     bHuman;
     wHuman;
     difficulty;
     isMenu;
+    isHighlight;
+    hhex;
+    quat;
     moveList = [];
 
     constructor(board, bHuman, wHuman,difficulty,menu) {
@@ -42,6 +43,10 @@ class GameState {
         this.wHuman = wHuman;
         this.difficulty = difficulty;
         this.isMenu = menu;
+        this.isHighlight = false;
+        this.hhex = [0,0];
+        this.quat = false;
+        this.moveList = [];
     }
 
     pieceArrays() {
@@ -115,31 +120,36 @@ class GameState {
     }
 
     legalTargets([i,j]) {
-        return this.legalMoves().filter(move => move.sourcex == i && move.sourcey == j)
-                   .map(move=>[move.targetx,move.targety]);
+        return this.legalMoves().filter(move => move.source[0] == i && move.source[1] == j)
+                   .map(move=>[move.target[0],move.target[1]]);
     }
 
     enact(move) {
-        this.board[move.targetx][move.targety] = this.board[move.sourcex][move.sourcey];
-        this.board[move.sourcex][move.sourcey] = 0;
+        this.board[move.target[0]][move.target[1]] = this.board[move.source[0]][move.source[1]];
+        this.board[move.source[0]][move.source[1]] = 0;
         this.turn = -this.turn;
-        highlight = false;
+        this.isHighlight = false;
         this.moveList.push(move);
     }
 
     undo() {
         if (this.moveList.length != 0) {
             let move = this.moveList.pop();
-            this.board[move.sourcex][move.sourcey] = move.pieceMoved;
-            this.board[move.targetx][move.targety] = move.pieceCaptured;
+            this.board[move.source[0]][move.source[1]] = move.pieceMoved;
+            this.board[move.target[0]][move.target[1]] = move.pieceCaptured;
             this.turn = -this.turn;
+            this.isHighlight = false;
         }
     }
 }
 
+export function fromID(id, board) {
+    return new Move(parseInt(id[0]),parseInt(id[1]),parseInt(id[2]),parseInt(id[3]),board);
+}
+
 // The initial board.
 
-const initialBoard =[[-1,-1,-1,-1, 0, 0, 0],
+export const initialBoard =[[-1,-1,-1,-1, 0, 0, 0],
                      [-1,-1,-1, 0, 0, 0, 0],
                      [-1,-1, 0, 0, 0, 0, 0],
                      [-1, 0, 0, 0, 0, 0, 1],
@@ -149,11 +159,86 @@ const initialBoard =[[-1,-1,-1,-1, 0, 0, 0],
                     ];
 
 
-function initialState(bH,wH,diff) {
+export function initialState(bH,wH,diff) {
     var arr = initialBoard.map(function(a) {
         return a.slice();
     })
     return new GameState(arr,bH,wH,diff,true);
 }
 
-export { initialState, Move };
+//------------------------------
+
+// Basic CLI
+
+export function asciiBoard(board) {
+    let str = "";
+    for (let i = 0; i < 7; i++) {
+        for (let j = 0; j < 7; j++) {
+            if (Math.abs(i-j) == 4) {
+                str += "\\ ";
+            }
+            else if (Math.abs(i-j) > 4) {
+                str += "  ";
+            }
+            else {
+                str += board[i][j] == -1 ? "B " : board[i][j] == 1 ? "W " : "- ";
+            }
+        }
+        str += "\n";
+    }
+    return str;
+}
+
+export function clPlayLoop(visibleState=true, bHuman=false, wHuman=true, scoreMatrix1=scores, scoreMatrix2=scores, difficulty=3) {
+    let state = initialState(bHuman,wHuman,difficulty);
+    while (!state.gameOver()) {
+        if (state.turn == -1) {
+            if (state.bHuman) {
+                console.log(asciiBoard(state.board));
+                console.log("Black's turn");
+                while (true) {
+                    let id = prompt("Enter move: ");
+                    if (id == null) {
+                        break;
+                    }
+                    state.enact(fromID(id,state.board));
+                }
+            }
+            else {
+                if (visibleState) {
+                    console.log(asciiBoard(state.board));
+                }
+                state.enact(engine_smart(state,scoreMatrix1));
+            }
+        }
+        else {
+            if (state.wHuman) {
+                console.log(asciiBoard(state.board));
+                console.log("White's turn");
+                while (true) {
+                    let id = prompt("Enter move: ");
+                    if (id == null) {
+                        break;
+                    }
+                    state.enact(fromID(id,state.board));
+                }
+            }
+            else {
+                if (visibleState) {
+                    console.log(asciiBoard(state.board));
+                }
+                state.enact(engine_smart(state,scoreMatrix2));
+            }
+        }
+    }
+    if (state.winner() == -1) {
+        console.log("Black wins");
+    }
+    else if (state.winner() == 1) {
+        console.log("White wins");
+    }
+    return state.winner();
+}
+
+
+clPlayLoop(true, false, false, scores, scores, 3);
